@@ -47,3 +47,20 @@ flowchart TD
     C --> E[Validação]
     E --> F[Resposta]
 ```
+# Componentes
+
+| Componente           | Descrição                          |
+|----------------------|------------------------------------|
+| Interface            | Streamlit                          |
+| LLM                  | Ollama(local)                      |
+| Base de Conhecimento | JSON/CSV com dados do cliente      |
+
+## Segurança e Anti-Alucinação
+
+### Estratégias Adotadas
+- [ ] [ex: Agente só responde com base nos dados fornecidos]
+- [ ] [ex: Respostas incluem fonte da informação]
+- [ ] [ex: Quando não sabe, admite e redireciona]
+- [ ] [ex: Não faz recomendações de investimento sem perfil do cliente]
+
+
