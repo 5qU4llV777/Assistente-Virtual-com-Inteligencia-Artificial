@@ -51,7 +51,7 @@ flowchart TD
 
 | Componente           | Descrição                          |
 |----------------------|------------------------------------|
-| Interface            | Streamlit                          |
+| Interface            | [Streamlit](https://streamlit.io/) |
 | LLM                  | Ollama(local)                      |
 | Base de Conhecimento | JSON/CSV com dados do cliente      |
 
