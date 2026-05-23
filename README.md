@@ -58,9 +58,13 @@ flowchart TD
 ## Segurança e Anti-Alucinação
 
 ### Estratégias Adotadas
-- [ ] [ex: Agente só responde com base nos dados fornecidos]
-- [ ] [ex: Respostas incluem fonte da informação]
-- [ ] [ex: Quando não sabe, admite e redireciona]
-- [ ] [ex: Não faz recomendações de investimento sem perfil do cliente]
+- [ ] Só use dados fornecidos no contexto
+- [ ] Não recomende investimentos específicos 
+- [ ] Admite quando não sabe algo 
+- [ ] Foca apenas em educar,não em aconselhar
 
+## Limitações Declaradas
+- Não faz recomendação de investimentos
+- Não acessa dados bancários reais
+- Não substitui um profissional certificado
 
