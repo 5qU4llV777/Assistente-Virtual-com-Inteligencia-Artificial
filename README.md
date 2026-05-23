@@ -52,7 +52,7 @@ flowchart TD
 | Componente           | Descrição                          |
 |----------------------|------------------------------------|
 | Interface            | [Streamlit](https://streamlit.io/) |
-| LLM                  | Ollama(local)                      |
+| LLM                  | Groq(Online)(APIKEY)             |
 | Base de Conhecimento | JSON/CSV com dados do cliente      |
 
 ## Segurança e Anti-Alucinação
