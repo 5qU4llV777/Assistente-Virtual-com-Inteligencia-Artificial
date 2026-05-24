@@ -52,7 +52,7 @@ flowchart TD
 | Componente           | Descrição                          |
 |----------------------|------------------------------------|
 | Interface            | [Streamlit](https://streamlit.io/) |
-| LLM                  | Groq(Online)(APIKEY)             |
+| LLM                  | Groq(Online)(APIKEY)               |
 | Base de Conhecimento | JSON/CSV com dados do cliente      |
 
 ## Segurança e Anti-Alucinação
@@ -67,4 +67,6 @@ flowchart TD
 - Não faz recomendação de investimentos
 - Não acessa dados bancários reais
 - Não substitui um profissional certificado
+
+## [Base De Conhecimento](https://github.com/5qU4llV777/Assistente-Virtual-com-Inteligencia-Artificial/blob/main/docs/Base%20de%20Conhecimento.md)
 
