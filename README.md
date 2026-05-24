@@ -58,10 +58,10 @@ flowchart TD
 ## Segurança e Anti-Alucinação
 
 ### Estratégias Adotadas
-- [ ] Só use dados fornecidos no contexto
-- [ ] Não recomende investimentos específicos 
+- [x] Só use dados fornecidos no contexto
+- [x] Não recomende investimentos específicos 
 - [ ] Admite quando não sabe algo 
-- [ ] Foca apenas em educar,não em aconselhar
+- [x] Foca apenas em educar,não em aconselhar
 
 ## Limitações Declaradas
 - Não faz recomendação de investimentos
