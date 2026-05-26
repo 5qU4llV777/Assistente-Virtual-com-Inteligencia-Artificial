@@ -60,7 +60,7 @@ flowchart TD
 ### Estratégias Adotadas
 - [x] Só use dados fornecidos no contexto
 - [x] Não recomende investimentos específicos 
-- [ ] Admite quando não sabe algo 
+- [x] Admite quando não sabe algo (Isto esta além da minha compreensão.)
 - [x] Foca apenas em educar,não em aconselhar
 
 ## Limitações Declaradas
