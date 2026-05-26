@@ -169,5 +169,4 @@ Lembre-se de que é importante diversificar seus investimentos e não colocar to
 
 > Registre aqui ajustes que você fez nos prompts e por quê.
 
-- [Observação 1]
-- [Observação 2]
+Na pergunta sobre o conceito ‘o que são FIIs?’, não havia definição explícita nos arquivos, mas a resposta correta foi encontrada. Ao consultar outras fontes, elas confirmaram a mesma explicação.
