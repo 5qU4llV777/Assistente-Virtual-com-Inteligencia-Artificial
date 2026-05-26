@@ -70,3 +70,5 @@ flowchart TD
 
 ## [Base De Conhecimento](https://github.com/5qU4llV777/Assistente-Virtual-com-Inteligencia-Artificial/blob/main/docs/Base%20de%20Conhecimento.md)
 
+## [Prompts](https://github.com/5qU4llV777/Assistente-Virtual-com-Inteligencia-Artificial/blob/main/docs/prompts.md)
+
