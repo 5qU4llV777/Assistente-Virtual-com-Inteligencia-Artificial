@@ -1,0 +1,10 @@
+streamlit
+groq
+pandas
+chromadb
+sentence-transformers
+numpy
+scikit-learn
+matplotlib
+seaborn
+openpyxl
