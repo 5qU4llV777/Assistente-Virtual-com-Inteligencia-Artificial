@@ -40,15 +40,18 @@ Informal,Acessivel ,Didático
 ### Diagrama
 ```mermaid
 flowchart TD
-    A[Usuário] -->|Mensagem| B[Interface - Streamlit]
-    B --> C[LLM - Groq API]
-    B --> D[Upload de Arquivos CSV/Excel]
-    D --> E[Indexação - ChromaDB]
-    E --> C
-    C --> F[Validação e Segurança]
-    F --> G[Resposta no Chat]
-    B --> H[Cloudflare Tunnel]
-    H --> A
+    A[Usuário] -->|Pergunta| B[Interface - Streamlit]
+    B --> C[Busca Vetorial - ChromaDB]
+    C --> D[Embeddings - SentenceTransformer]
+    C --> E[Chunks relevantes]
+    E --> F[QA Pipeline - BERT/DistilBERT]
+    F --> G[Resposta inicial baseada em NLP]
+    G --> H[LLM - Groq API]
+    H --> I[Resposta refinada estilo Gandalf]
+    I --> B
+    B --> J[Cloudflare Tunnel]
+    J --> A
+
 
 ```
 # Componentes

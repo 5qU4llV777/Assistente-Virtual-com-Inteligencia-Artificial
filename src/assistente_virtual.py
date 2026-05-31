@@ -3,6 +3,7 @@ import pandas as pd
 from groq import Groq
 import chromadb
 from sentence_transformers import SentenceTransformer
+from transformers import pipeline
 import hashlib
 
 st.title("🧙 IA com RAG - Gandalf")
@@ -12,11 +13,18 @@ api_key = st.text_input("API Key do Groq:", type="password")
 
 @st.cache_resource
 def carregar_modelos():
+    # Embeddings para busca semântica
     embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+    
+    # Cliente ChromaDB
     chroma_client = chromadb.Client()
-    return embedding_model, chroma_client
+    
+    # Pipeline de QA com Transformers (DistilBERT)
+    qa_pipeline = pipeline("question-answering", model="distilbert-base-uncased-distilled-squad")
+    
+    return embedding_model, chroma_client, qa_pipeline
 
-embedding_model, chroma_client = carregar_modelos()
+embedding_model, chroma_client, qa_pipeline = carregar_modelos()
 
 uploaded_files = st.file_uploader(
     "📂 Envie seus CSVs ou Excel",
@@ -71,10 +79,16 @@ if uploaded_files:
             with st.chat_message("user"):
                 st.write(prompt)
 
+            # Busca chunks relevantes
             query_embedding = embedding_model.encode([prompt]).tolist()
             resultados = collection.query(query_embeddings=query_embedding, n_results=5)
             contexto = "\n\n".join(resultados["documents"][0])
 
+            # Resposta inicial com NLP avançado (DistilBERT)
+            resposta_nlp = qa_pipeline(question=prompt, context=contexto)["answer"]
+            st.write(f"🔎 Resposta baseada em NLP: {resposta_nlp}")
+
+            # Refinamento com Groq
             system_prompt = f"""Você é um analista de dados experiente.
 Responda a pergunta do usuário com base nos trechos do dataset abaixo.
 Se não encontrar a informação, diga: Isto está além da minha compreensão.
