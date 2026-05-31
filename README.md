@@ -40,20 +40,25 @@ Informal,Acessivel ,Didático
 ### Diagrama
 ```mermaid
 flowchart TD
-    A[Cliente] -->|Mensagem| B[Interface]
-    B --> C[LLM]
-    C --> D[Base de Conhecimento]
-    D --> C
-    C --> E[Validação]
-    E --> F[Resposta]
+    A[Usuário] -->|Mensagem| B[Interface - Streamlit]
+    B --> C[LLM - Groq API]
+    B --> D[Upload de Arquivos CSV/Excel]
+    D --> E[Indexação - ChromaDB]
+    E --> C
+    C --> F[Validação e Segurança]
+    F --> G[Resposta no Chat]
+    B --> H[Cloudflare Tunnel]
+    H --> A
+
 ```
 # Componentes
 
-| Componente           | Descrição                          |
-|----------------------|------------------------------------|
-| Interface            | [Streamlit](https://streamlit.io/) |
-| LLM                  | Groq(Online)(APIKEY)               |
-| Base de Conhecimento | JSON/CSV com dados do cliente      |
+| Componente | Descrição |
+| --- | --- |
+| Interface | [Streamlit](https://streamlit.io/) |
+| LLM | Groq API (modelo Llama 3.3) |
+| Base de Conhecimento | CSV/Excel indexados no ChromaDB |
+| Deploy | Cloudflare Tunnel |
 
 ## Segurança e Anti-Alucinação
 

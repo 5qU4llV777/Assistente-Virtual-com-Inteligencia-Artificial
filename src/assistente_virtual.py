@@ -1,8 +1,3 @@
-import os
-import subprocess
-import threading
-import time
-import re
 import streamlit as st
 import pandas as pd
 from groq import Groq
@@ -10,20 +5,6 @@ import chromadb
 from sentence_transformers import SentenceTransformer
 import hashlib
 
-# ---------------------------
-# Configuração inicial
-# ---------------------------
-# Baixa e configura o cloudflared
-subprocess.run([
-    "wget", "-q",
-    "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64",
-    "-O", "cloudflared"
-])
-subprocess.run(["chmod", "+x", "cloudflared"])
-
-# ---------------------------
-# Aplicação Streamlit
-# ---------------------------
 st.title("🧙 IA com RAG - Gandalf")
 st.caption("Busca vetorial — aguenta qualquer tamanho")
 
@@ -117,25 +98,3 @@ TRECHOS RELEVANTES:
             st.session_state.messages.append({"role": "assistant", "content": reply})
 else:
     st.info("⬆️ Envie seus arquivos para começar")
-
-# ---------------------------
-# Execução com Cloudflare Tunnel
-# ---------------------------
-def run_streamlit():
-    subprocess.run(["streamlit", "run", __file__, "--server.port=8501", "--server.headless=true"])
-
-threading.Thread(target=run_streamlit, daemon=True).start()
-time.sleep(4)
-
-tunnel = subprocess.Popen(
-    ["./cloudflared", "tunnel", "--url", "http://localhost:8501"],
-    stderr=subprocess.PIPE, stdout=subprocess.PIPE
-)
-
-for line in tunnel.stderr:
-    line = line.decode()
-    if "trycloudflare.com" in line:
-        url = re.search(r'https://\S+\.trycloudflare\.com', line)
-        if url:
-            print(f"✅ Acesse aqui: {url.group()}")
-            break
