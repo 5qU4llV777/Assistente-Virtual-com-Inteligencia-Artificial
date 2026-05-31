@@ -10,6 +10,7 @@
 | dataset_juros.csv          | CSV     | Ensina o que é juros compostos e simples      |
 | dataset_orcamento.csv      | CSV     | Analisar padrão de gastos do cliente          |
 
+### [Gerador de Arquivos .csv](https://github.com/5qU4llV777/Assistente-Virtual-com-Inteligencia-Artificial/blob/main/data/geradorcsv.py)
 
 Quer um dataset mais robusto? Você pode utilizar datasets públicos do [Hugging Face](https://huggingface.co/datasets) relacionados a finanças, desde que sejam adequados ao contexto do desafio
 
