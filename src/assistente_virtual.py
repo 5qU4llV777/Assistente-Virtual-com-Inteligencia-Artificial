@@ -88,14 +88,41 @@ if uploaded_files:
             resposta_nlp = qa_pipeline(question=prompt, context=contexto)["answer"]
             st.write(f"🔎 Resposta baseada em NLP: {resposta_nlp}")
 
-            # Refinamento com Groq
-            system_prompt = f"""Você é um analista de dados experiente.
-Responda a pergunta do usuário com base nos trechos do dataset abaixo.
+            # Escolha do modo de resposta (IA Generativa)
+            modo = st.radio(
+                "Escolha o modo de resposta:",
+                ["Resposta direta", "Resumo", "Insights"]
+            )
+
+            if modo == "Resumo":
+                system_prompt = f"""Você é um analista de dados experiente.
+Resuma os trechos abaixo em até 5 pontos principais.
 Se não encontrar a informação, diga: Isto está além da minha compreensão.
 
 TRECHOS RELEVANTES:
 {contexto}
 """
+            elif modo == "Insights":
+                system_prompt = f"""Você é um consultor financeiro.
+Analise os trechos abaixo e gere insights práticos para o usuário.
+Se não encontrar a informação, diga: Isto está além da minha compreensão.
+
+TRECHOS RELEVANTES:
+{contexto}
+"""
+            else:  # Resposta direta
+                system_prompt = f"""Você é Gandalf, Mentor do Dinheiro.
+Responda de forma amigável e didática, adaptando ao estilo do usuário.
+Se não encontrar a informação, diga: Isto está além da minha compreensão.
+
+Pergunta:
+{prompt}
+
+TRECHOS RELEVANTES:
+{contexto}
+"""
+
+            # Refinamento com Groq
             client = Groq(api_key=api_key)
             mensagens = [{"role": "system", "content": system_prompt}, *st.session_state.messages]
 
