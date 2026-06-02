@@ -84,3 +84,7 @@ flowchart TD
 ## Resultado final
 
 [![Assista no YouTube](https://img.youtube.com/vi/ePSevpf31Sw/0.jpg)](https://youtu.be/ePSevpf31Sw)
+
+## Resultado final Atualizado com Python
+
+[![Vídeo demonstrativo](https://img.youtube.com/vi/XnzGErrAuhM/0.jpg)](https://youtu.be/XnzGErrAuhM)
