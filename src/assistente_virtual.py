@@ -19,12 +19,17 @@ def carregar_modelos():
     # Cliente ChromaDB
     chroma_client = chromadb.Client()
     
-    # Pipeline de QA com Transformers (DistilBERT)
-    qa_pipeline = pipeline("question-answering", model="distilbert-base-uncased-distilled-squad")
+    # Pipeline de QA atualizado para Transformers recentes
+    # Usamos um modelo de geração de texto treinado para QA
+    qa_pipeline = pipeline(
+        "text-generation",
+        model="google/flan-t5-base"   # modelo moderno que entende perguntas e contexto
+    )
     
     return embedding_model, chroma_client, qa_pipeline
 
 embedding_model, chroma_client, qa_pipeline = carregar_modelos()
+
 
 uploaded_files = st.file_uploader(
     "📂 Envie seus CSVs ou Excel",
@@ -85,7 +90,9 @@ if uploaded_files:
             contexto = "\n\n".join(resultados["documents"][0])
 
             # Resposta inicial com NLP avançado (DistilBERT)
-            resposta_nlp = qa_pipeline(question=prompt, context=contexto)["answer"]
+            entrada = f"Pergunta: {prompt}\nContexto: {contexto}\nResposta:"
+            resposta_nlp = qa_pipeline(entrada, max_length=200)[0]["generated_text"]
+
             st.write(f"🔎 Resposta baseada em NLP: {resposta_nlp}")
 
             # Escolha do modo de resposta (IA Generativa)
