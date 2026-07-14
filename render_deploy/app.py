@@ -1,116 +1,144 @@
 import os
-from fastapi import FastAPI
-from pydantic import BaseModel
-from groq import Groq
+import streamlit as st
+import pandas as pd
 import chromadb
-from fastembed import TextEmbedding
-from fastapi.responses import HTMLResponse
+from sentence_transformers import SentenceTransformer
+from transformers import pipeline
+import hashlib
+from groq import Groq
 
-app = FastAPI()
+st.title("🧙 IA com RAG - Gandalf")
+st.caption("Busca vetorial — aguenta qualquer tamanho")
 
-# fastembed usa ONNX Runtime em vez de PyTorch — muito mais leve em memória,
-# essencial pra caber nos 512MB do plano gratuito do Render
-embedding_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
-chroma_client = chromadb.Client()
+@st.cache_resource
+def carregar_modelos():
+    # Embeddings para busca semântica
+    embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+    
+    # Cliente ChromaDB
+    chroma_client = chromadb.Client()
+    
+    # Pipeline de QA atualizado para Transformers recentes
+    qa_pipeline = pipeline(
+        "text-generation",
+        model="google/flan-t5-base"
+    )
+    
+    return embedding_model, chroma_client, qa_pipeline
 
-# Inicializa cliente Groq com chave de ambiente
-client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
+embedding_model, chroma_client, qa_pipeline = carregar_modelos()
 
+# Inicializa cliente Groq com variável de ambiente
+client = Groq(api_key=os.environ["GROQ_API_KEY"])
 
-class Pergunta(BaseModel):
-    texto: str
+uploaded_files = st.file_uploader(
+    "📂 Envie seus CSVs ou Excel",
+    type=["csv", "xlsx", "xls"],
+    accept_multiple_files=True
+)
 
+def indexar_dataframe(df, nome_arquivo, collection):
+    chunk_size = 50
+    chunks, ids = [], []
+    for i in range(0, len(df), chunk_size):
+        chunk = df.iloc[i:i+chunk_size]
+        texto = f"Arquivo: {nome_arquivo}\nLinhas {i} a {i+len(chunk)}:\n{chunk.to_string()}"
+        chunk_id = hashlib.md5(texto.encode()).hexdigest()
+        chunks.append(texto)
+        ids.append(chunk_id)
+    embeddings = embedding_model.encode(chunks).tolist()
+    collection.add(documents=chunks, embeddings=embeddings, ids=ids)
+    return len(chunks)
 
-@app.get("/")
-def raiz():
-    return {"status": "Gandalf, Mentor do Dinheiro, está no ar"}
-
-
-@app.post("/pergunta")
-def responder(pergunta: Pergunta):
+if uploaded_files:
     try:
-        # Gera embedding da pergunta
-        query_embedding = list(embedding_model.embed([pergunta.texto]))[0].tolist()
+        collection = chroma_client.get_collection("datasets")
+    except:
+        collection = chroma_client.create_collection("datasets")
 
-        # Garante que a coleção exista
-        if "datasets" not in [c.name for c in chroma_client.list_collections()]:
-            chroma_client.create_collection("datasets")
+    for file in uploaded_files:
+        file_hash = hashlib.md5(file.name.encode()).hexdigest()
+        if f"indexed_{file_hash}" not in st.session_state:
+            with st.spinner(f"Indexando {file.name}..."):
+                df = pd.read_csv(file) if file.name.endswith(".csv") else pd.read_excel(file)
+                n_chunks = indexar_dataframe(df, file.name, collection)
+                st.session_state[f"indexed_{file_hash}"] = True
+                st.success(f"✅ {file.name} indexado em {n_chunks} blocos ({df.shape[0]} linhas)")
+        else:
+            st.info(f"✅ {file.name} já está indexado")
 
-        # Busca contexto
-        resultados = chroma_client.get_collection("datasets").query(
-            query_embeddings=[query_embedding], n_results=5
+    st.divider()
+
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.write(msg["content"])
+
+    if prompt := st.chat_input("olá sou Gandalf, seu Mentor do Dinheiro, como posso te ajudar hoje?"):
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.write(prompt)
+
+        # Busca chunks relevantes
+        query_embedding = embedding_model.encode([prompt]).tolist()
+        resultados = collection.query(query_embeddings=query_embedding, n_results=5)
+        contexto = "\n\n".join(resultados["documents"][0])
+
+        # Resposta inicial com NLP
+        entrada = f"Pergunta: {prompt}\nContexto: {contexto}\nResposta:"
+        resposta_nlp = qa_pipeline(entrada, max_length=200)[0]["generated_text"]
+
+        st.write(f"🔎 Resposta baseada em NLP: {resposta_nlp}")
+
+        # Escolha do modo de resposta
+        modo = st.radio(
+            "Escolha o modo de resposta:",
+            ["Resposta direta", "Resumo", "Insights"]
         )
-        contexto = "\n\n".join(resultados["documents"][0]) if resultados["documents"] else ""
 
-        # Prompt para o modelo
-        system_prompt = f"""
-        Você é Gandalf, Mentor do Dinheiro.
-        Responda de forma amigável e didática.
-        Pergunta: {pergunta.texto}
-        Contexto: {contexto}
-        """
+        if modo == "Resumo":
+            system_prompt = f"""Você é um analista de dados experiente.
+Resuma os trechos abaixo em até 5 pontos principais.
+Se não encontrar a informação, diga: Isto está além da minha compreensão.
 
-        # Chamada ao modelo Groq
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "system", "content": system_prompt}],
-            max_tokens=1024
-        )
+TRECHOS RELEVANTES:
+{contexto}
+"""
+        elif modo == "Insights":
+            system_prompt = f"""Você é um consultor financeiro.
+Analise os trechos abaixo e gere insights práticos para o usuário.
+Se não encontrar a informação, diga: Isto está além da minha compreensão.
 
-        return {"resposta": response.choices[0].message.content}
+TRECHOS RELEVANTES:
+{contexto}
+"""
+        else:  # Resposta direta
+            system_prompt = f"""Você é Gandalf, Mentor do Dinheiro.
+Responda de forma amigável e didática, adaptando ao estilo do usuário.
+Se não encontrar a informação, diga: Isto está além da minha compreensão.
 
-    except Exception as e:
-        # Retorna erro como JSON válido
-        return {"erro": str(e)}
+Pergunta:
+{prompt}
 
+TRECHOS RELEVANTES:
+{contexto}
+"""
 
-# 🔮 Interface web simples
-@app.get("/ui", response_class=HTMLResponse)
-def ui():
-    return """
-    <html>
-      <head>
-        <title>Gandalf, Mentor do Dinheiro</title>
-        <style>
-          body { font-family: Arial; background-color: #0b0c10; color: #c5c6c7; text-align: center; padding: 50px; }
-          input { width: 60%; padding: 10px; margin: 10px; border-radius: 5px; border: none; }
-          button { padding: 10px 20px; background-color: #45a29e; color: white; border: none; border-radius: 5px; cursor: pointer; }
-          button:hover { background-color: #66fcf1; color: #0b0c10; }
-          .resposta { margin-top: 20px; font-size: 18px; }
-          .erro { margin-top: 20px; font-size: 16px; color: #ff5555; }
-        </style>
-      </head>
-      <body>
-        <h1>🧙‍♂️ Gandalf, Mentor do Dinheiro</h1>
-        <form id="form">
-          <input id="texto" placeholder="Digite sua pergunta..." />
-          <button type="submit">Perguntar</button>
-        </form>
-        <div class="resposta" id="resposta"></div>
-        <div class="erro" id="erro"></div>
-        <script>
-          document.getElementById('form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const texto = document.getElementById('texto').value;
-            document.getElementById('resposta').innerText = '';
-            document.getElementById('erro').innerText = '';
-            try {
-              const resp = await fetch('/pergunta', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({texto})
-              });
-              const data = await resp.json();
-              if (data.resposta) {
-                document.getElementById('resposta').innerText = data.resposta;
-              } else {
-                document.getElementById('erro').innerText = '⚠️ ' + data.erro;
-              }
-            } catch (err) {
-              document.getElementById('erro').innerText = '❌ Erro de conexão com o servidor.';
-            }
-          });
-        </script>
-      </body>
-    </html>
-    """
+        # Refinamento com Groq
+        mensagens = [{"role": "system", "content": system_prompt}, *st.session_state.messages]
+
+        with st.chat_message("assistant"):
+            with st.spinner("Entendi pequeno mestre, vou verificar para você"):
+                response = client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=mensagens,
+                    max_tokens=2048
+                )
+                reply = response.choices[0].message.content
+                st.write(reply)
+
+        st.session_state.messages.append({"role": "assistant", "content": reply})
+else:
+    st.info("⬆️ Envie seus arquivos para começar")
