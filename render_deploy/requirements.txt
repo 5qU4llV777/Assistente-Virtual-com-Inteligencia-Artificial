@@ -4,3 +4,5 @@ groq
 chromadb
 fastembed
 pytest
+mlflow
+scikit-learn
