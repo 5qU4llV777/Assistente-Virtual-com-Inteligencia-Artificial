@@ -3,14 +3,15 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from groq import Groq
 import chromadb
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 
 app = FastAPI()
 
-embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+# fastembed usa ONNX Runtime em vez de PyTorch — muito mais leve em memória,
+# essencial pra caber nos 512MB do plano gratuito do Render
+embedding_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
 chroma_client = chromadb.Client()
 
-# A chave agora vem de variável de ambiente, nunca do código
 client = Groq(api_key=os.environ["GROQ_API_KEY"])
 
 
@@ -25,9 +26,10 @@ def raiz():
 
 @app.post("/pergunta")
 def responder(pergunta: Pergunta):
-    query_embedding = embedding_model.encode([pergunta.texto]).tolist()
+    query_embedding = list(embedding_model.embed([pergunta.texto]))[0].tolist()
+
     resultados = chroma_client.get_collection("datasets").query(
-        query_embeddings=query_embedding, n_results=5
+        query_embeddings=[query_embedding], n_results=5
     )
     contexto = "\n\n".join(resultados["documents"][0])
 

@@ -2,4 +2,4 @@ fastapi
 uvicorn
 groq
 chromadb
-sentence-transformers
+fastembed
