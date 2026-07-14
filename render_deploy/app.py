@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from groq import Groq
 import chromadb
 from fastembed import TextEmbedding
+from fastapi.responses import HTMLResponse
 
 app = FastAPI()
 
@@ -46,3 +47,43 @@ def responder(pergunta: Pergunta):
         max_tokens=1024
     )
     return {"resposta": response.choices[0].message.content}
+
+
+# 🔮 Interface web simples
+@app.get("/ui", response_class=HTMLResponse)
+def ui():
+    return """
+    <html>
+      <head>
+        <title>Gandalf, Mentor do Dinheiro</title>
+        <style>
+          body { font-family: Arial; background-color: #0b0c10; color: #c5c6c7; text-align: center; padding: 50px; }
+          input { width: 60%; padding: 10px; margin: 10px; border-radius: 5px; border: none; }
+          button { padding: 10px 20px; background-color: #45a29e; color: white; border: none; border-radius: 5px; cursor: pointer; }
+          button:hover { background-color: #66fcf1; color: #0b0c10; }
+          .resposta { margin-top: 20px; font-size: 18px; }
+        </style>
+      </head>
+      <body>
+        <h1>🧙‍♂️ Gandalf, Mentor do Dinheiro</h1>
+        <form id="form">
+          <input id="texto" placeholder="Digite sua pergunta..." />
+          <button type="submit">Perguntar</button>
+        </form>
+        <div class="resposta" id="resposta"></div>
+        <script>
+          document.getElementById('form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const texto = document.getElementById('texto').value;
+            const resp = await fetch('/pergunta', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({texto})
+            });
+            const data = await resp.json();
+            document.getElementById('resposta').innerText = data.resposta;
+          });
+        </script>
+      </body>
+    </html>
+    """
