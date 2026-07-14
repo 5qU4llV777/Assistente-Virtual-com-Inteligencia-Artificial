@@ -6,3 +6,4 @@ fastembed
 pytest
 mlflow
 scikit-learn
+streamlit
