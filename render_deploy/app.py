@@ -2,28 +2,28 @@ import os
 import streamlit as st
 import pandas as pd
 import chromadb
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 from transformers import pipeline
 import hashlib
 from groq import Groq
 
 st.title("🧙 IA com RAG - Gandalf")
-st.caption("Busca vetorial — aguenta qualquer tamanho")
+st.caption("Busca vetorial — otimizado para Render Free")
 
 @st.cache_resource
 def carregar_modelos():
-    # Embeddings para busca semântica
-    embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
-    
-    # Cliente ChromaDB
-    chroma_client = chromadb.Client()
-    
-    # Pipeline de QA atualizado para Transformers recentes
+    # Embeddings leves com ONNX Runtime
+    embedding_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
+
+    # Cliente ChromaDB persistente (usa disco, não RAM)
+    chroma_client = chromadb.PersistentClient(path="/tmp/chroma")
+
+    # Pipeline de QA leve
     qa_pipeline = pipeline(
         "text-generation",
-        model="google/flan-t5-base"
+        model="google/flan-t5-small"  # versão menor e mais rápida
     )
-    
+
     return embedding_model, chroma_client, qa_pipeline
 
 embedding_model, chroma_client, qa_pipeline = carregar_modelos()
@@ -38,7 +38,7 @@ uploaded_files = st.file_uploader(
 )
 
 def indexar_dataframe(df, nome_arquivo, collection):
-    chunk_size = 50
+    chunk_size = 20  # reduzido para economizar memória
     chunks, ids = [], []
     for i in range(0, len(df), chunk_size):
         chunk = df.iloc[i:i+chunk_size]
@@ -46,7 +46,7 @@ def indexar_dataframe(df, nome_arquivo, collection):
         chunk_id = hashlib.md5(texto.encode()).hexdigest()
         chunks.append(texto)
         ids.append(chunk_id)
-    embeddings = embedding_model.encode(chunks).tolist()
+    embeddings = list(embedding_model.embed(chunks))
     collection.add(documents=chunks, embeddings=embeddings, ids=ids)
     return len(chunks)
 
@@ -82,13 +82,13 @@ if uploaded_files:
             st.write(prompt)
 
         # Busca chunks relevantes
-        query_embedding = embedding_model.encode([prompt]).tolist()
-        resultados = collection.query(query_embeddings=query_embedding, n_results=5)
+        query_embedding = list(embedding_model.embed([prompt]))[0].tolist()
+        resultados = collection.query(query_embeddings=[query_embedding], n_results=5)
         contexto = "\n\n".join(resultados["documents"][0])
 
-        # Resposta inicial com NLP
+        # Resposta inicial com NLP leve
         entrada = f"Pergunta: {prompt}\nContexto: {contexto}\nResposta:"
-        resposta_nlp = qa_pipeline(entrada, max_length=200)[0]["generated_text"]
+        resposta_nlp = qa_pipeline(entrada, max_length=150)[0]["generated_text"]
 
         st.write(f"🔎 Resposta baseada em NLP: {resposta_nlp}")
 
@@ -114,7 +114,7 @@ Se não encontrar a informação, diga: Isto está além da minha compreensão.
 TRECHOS RELEVANTES:
 {contexto}
 """
-        else:  # Resposta direta
+        else:
             system_prompt = f"""Você é Gandalf, Mentor do Dinheiro.
 Responda de forma amigável e didática, adaptando ao estilo do usuário.
 Se não encontrar a informação, diga: Isto está além da minha compreensão.
@@ -126,7 +126,6 @@ TRECHOS RELEVANTES:
 {contexto}
 """
 
-        # Refinamento com Groq
         mensagens = [{"role": "system", "content": system_prompt}, *st.session_state.messages]
 
         with st.chat_message("assistant"):
@@ -134,7 +133,7 @@ TRECHOS RELEVANTES:
                 response = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
                     messages=mensagens,
-                    max_tokens=2048
+                    max_tokens=1024  # reduzido para economizar memória
                 )
                 reply = response.choices[0].message.content
                 st.write(reply)
