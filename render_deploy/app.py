@@ -7,6 +7,10 @@ from transformers import pipeline
 import hashlib
 from groq import Groq
 
+# ⚙️ Configuração inicial para evitar cache pesado
+st.cache_resource.clear()
+st.set_page_config(page_title="Gandalf", layout="wide")
+
 st.title("🧙 IA com RAG - Gandalf")
 st.caption("Busca vetorial — otimizado para Render Free")
 
@@ -15,7 +19,7 @@ def carregar_modelos():
     # Embeddings leves com ONNX Runtime
     embedding_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
 
-    # Cliente ChromaDB persistente (usa disco, não RAM)
+    # Cliente ChromaDB persistente em disco (economiza RAM)
     chroma_client = chromadb.PersistentClient(path="/tmp/chroma")
 
     # Pipeline de QA leve
