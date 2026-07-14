@@ -21,6 +21,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r src/requirements.txt
           pip install pytest
+          pip install mlflow scikit-learn
 
       - name: Rodar testes
         run: pytest tests/
