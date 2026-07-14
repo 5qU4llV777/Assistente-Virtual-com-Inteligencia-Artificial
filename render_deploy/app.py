@@ -13,7 +13,8 @@ app = FastAPI()
 embedding_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
 chroma_client = chromadb.Client()
 
-client = Groq(api_key=os.environ["GROQ_API_KEY"])
+# Inicializa cliente Groq com chave de ambiente
+client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
 
 
 class Pergunta(BaseModel):
@@ -27,26 +28,40 @@ def raiz():
 
 @app.post("/pergunta")
 def responder(pergunta: Pergunta):
-    query_embedding = list(embedding_model.embed([pergunta.texto]))[0].tolist()
+    try:
+        # Gera embedding da pergunta
+        query_embedding = list(embedding_model.embed([pergunta.texto]))[0].tolist()
 
-    resultados = chroma_client.get_collection("datasets").query(
-        query_embeddings=[query_embedding], n_results=5
-    )
-    contexto = "\n\n".join(resultados["documents"][0])
+        # Garante que a coleção exista
+        if "datasets" not in [c.name for c in chroma_client.list_collections()]:
+            chroma_client.create_collection("datasets")
 
-    system_prompt = f"""
-    Você é Gandalf, Mentor do Dinheiro.
-    Responda de forma amigável e didática.
-    Pergunta: {pergunta.texto}
-    Contexto: {contexto}
-    """
+        # Busca contexto
+        resultados = chroma_client.get_collection("datasets").query(
+            query_embeddings=[query_embedding], n_results=5
+        )
+        contexto = "\n\n".join(resultados["documents"][0]) if resultados["documents"] else ""
 
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[{"role": "system", "content": system_prompt}],
-        max_tokens=1024
-    )
-    return {"resposta": response.choices[0].message.content}
+        # Prompt para o modelo
+        system_prompt = f"""
+        Você é Gandalf, Mentor do Dinheiro.
+        Responda de forma amigável e didática.
+        Pergunta: {pergunta.texto}
+        Contexto: {contexto}
+        """
+
+        # Chamada ao modelo Groq
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "system", "content": system_prompt}],
+            max_tokens=1024
+        )
+
+        return {"resposta": response.choices[0].message.content}
+
+    except Exception as e:
+        # Retorna erro como JSON válido
+        return {"erro": str(e)}
 
 
 # 🔮 Interface web simples
@@ -62,6 +77,7 @@ def ui():
           button { padding: 10px 20px; background-color: #45a29e; color: white; border: none; border-radius: 5px; cursor: pointer; }
           button:hover { background-color: #66fcf1; color: #0b0c10; }
           .resposta { margin-top: 20px; font-size: 18px; }
+          .erro { margin-top: 20px; font-size: 16px; color: #ff5555; }
         </style>
       </head>
       <body>
@@ -71,17 +87,28 @@ def ui():
           <button type="submit">Perguntar</button>
         </form>
         <div class="resposta" id="resposta"></div>
+        <div class="erro" id="erro"></div>
         <script>
           document.getElementById('form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const texto = document.getElementById('texto').value;
-            const resp = await fetch('/pergunta', {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({texto})
-            });
-            const data = await resp.json();
-            document.getElementById('resposta').innerText = data.resposta;
+            document.getElementById('resposta').innerText = '';
+            document.getElementById('erro').innerText = '';
+            try {
+              const resp = await fetch('/pergunta', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({texto})
+              });
+              const data = await resp.json();
+              if (data.resposta) {
+                document.getElementById('resposta').innerText = data.resposta;
+              } else {
+                document.getElementById('erro').innerText = '⚠️ ' + data.erro;
+              }
+            } catch (err) {
+              document.getElementById('erro').innerText = '❌ Erro de conexão com o servidor.';
+            }
           });
         </script>
       </body>
