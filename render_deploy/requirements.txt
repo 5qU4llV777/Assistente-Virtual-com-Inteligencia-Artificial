@@ -7,3 +7,6 @@ pytest
 mlflow
 scikit-learn
 streamlit
+sentence-transformers
+transformers
+pandas
