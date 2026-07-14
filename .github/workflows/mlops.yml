@@ -25,10 +25,5 @@ jobs:
       - name: Registrar modelo no MLflow
         run: python scripts/register_model.py
 
-      - name: Deploy para AWS Lambda
-        uses: appleboy/lambda-action@master
-        with:
-          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_KEY }}
-          function_name: gandalf-assistente
-          zip_file: package.zip
+      - name: Deploy para o Render
+        run: curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
