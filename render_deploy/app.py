@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from pydantic import BaseModel
 from groq import Groq
@@ -8,10 +9,19 @@ app = FastAPI()
 
 embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
 chroma_client = chromadb.Client()
-client = Groq(api_key="SUA_API_KEY")
+
+# A chave agora vem de variável de ambiente, nunca do código
+client = Groq(api_key=os.environ["GROQ_API_KEY"])
+
 
 class Pergunta(BaseModel):
     texto: str
+
+
+@app.get("/")
+def raiz():
+    return {"status": "Gandalf, Mentor do Dinheiro, está no ar"}
+
 
 @app.post("/pergunta")
 def responder(pergunta: Pergunta):
