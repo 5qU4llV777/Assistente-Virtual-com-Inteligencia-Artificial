@@ -45,6 +45,13 @@ async def upload(files: List[UploadFile] = File(...)):
                     detail=f"Arquivo {file.filename} excede o limite de 10 MB"
                 )
 
+            # valida extensão
+            if not (file.filename.endswith(".csv") or file.filename.endswith(".xlsx")):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Formato inválido: {file.filename}. Apenas .csv ou .xlsx são aceitos."
+                )
+
             # lê CSV ou Excel
             if file.filename.endswith(".csv"):
                 df = pd.read_csv(file.file)
@@ -119,13 +126,19 @@ def ui():
           <input type="file" id="file" multiple />
           <button type="submit">Enviar arquivos</button>
         </form>
+        <p style="font-size:14px; color:#66fcf1; margin-top:5px;">
+          📌 Apenas arquivos <strong>.csv</strong> ou <strong>.xlsx</strong> até 10 MB são aceitos.
+        </p>
         <progress id="progressBar" value="0" max="100" style="width:60%; display:none;"></progress>
         <div id="statusMsg" style="margin-top:10px; font-size:16px;"></div>
 
         <form id="form">
-          <input id="texto" placeholder="Digite sua pergunta..." />
+          <input id="texto" placeholder="Digite sua pergunta..." style="width:300px;" />
           <button type="submit">Perguntar</button>
         </form>
+        <p style="font-size:13px; color:#66fcf1; margin-top:5px;">
+          📌 Gandalf responde sobre <strong>finanças pessoais</strong>, <strong>investimentos</strong> e <strong>orçamento</strong>.
+        </p>
         <div class="resposta" id="resposta"></div>
         <div class="erro" id="erro"></div>
 
@@ -138,11 +151,18 @@ def ui():
             const formData = new FormData();
 
             for (let i = 0; i < files.length; i++) {
-              if (files[i].size > MAX_FILE_SIZE) {
-                alert(`⚠️ O arquivo ${files[i].name} excede o limite de 10 MB`);
+              const file = files[i];
+              // valida extensão
+              if (!(file.name.endsWith(".csv") || file.name.endsWith(".xlsx"))) {
+                alert(`⚠️ Formato inválido: ${file.name}. Apenas .csv ou .xlsx são aceitos.`);
                 return;
               }
-              formData.append('files', files[i]);
+              // valida tamanho
+              if (file.size > MAX_FILE_SIZE) {
+                alert(`⚠️ O arquivo ${file.name} excede o limite de 10 MB`);
+                return;
+              }
+              formData.append('files', file);
             }
 
             const progressBar = document.getElementById('progressBar');
@@ -190,7 +210,7 @@ def ui():
             document.getElementById('statusMsg').innerText = "⏳ Processando pergunta...";
 
             try {
-              const resp = await fetch('/pergunta', {
+                const resp = await fetch('/pergunta', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({texto})
@@ -211,4 +231,4 @@ def ui():
         </script>
       </body>
     </html>
-    """
+"""
