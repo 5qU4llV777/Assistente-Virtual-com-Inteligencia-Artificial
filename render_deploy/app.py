@@ -1,147 +1,89 @@
 import os
-import streamlit as st
+import hashlib
 import pandas as pd
+from fastapi import FastAPI, UploadFile, File
+from pydantic import BaseModel
+from groq import Groq
 import chromadb
 from fastembed import TextEmbedding
-from transformers import pipeline
-import hashlib
-from groq import Groq
 
-# ⚙️ Configuração inicial para evitar cache pesado
-st.cache_resource.clear()
-st.set_page_config(page_title="Gandalf", layout="wide")
+app = FastAPI()
 
-st.title("🧙 IA com RAG - Gandalf")
-st.caption("Busca vetorial — otimizado para Render Free")
+# Embeddings leves
+embedding_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
 
-@st.cache_resource
-def carregar_modelos():
-    # Embeddings leves com ONNX Runtime
-    embedding_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
+# Cliente ChromaDB persistente em disco
+chroma_client = chromadb.PersistentClient(path="/tmp/chroma")
 
-    # Cliente ChromaDB persistente em disco (economiza RAM)
-    chroma_client = chromadb.PersistentClient(path="/tmp/chroma")
+# Inicializa cliente Groq
+client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
 
-    # Pipeline de QA leve
-    qa_pipeline = pipeline(
-        "text-generation",
-        model="google/flan-t5-small"  # versão menor e mais rápida
-    )
+class Pergunta(BaseModel):
+    texto: str
 
-    return embedding_model, chroma_client, qa_pipeline
+@app.get("/")
+def raiz():
+    return {"status": "Gandalf, Mentor do Dinheiro, está no ar"}
 
-embedding_model, chroma_client, qa_pipeline = carregar_modelos()
-
-# Inicializa cliente Groq com variável de ambiente
-client = Groq(api_key=os.environ["GROQ_API_KEY"])
-
-uploaded_files = st.file_uploader(
-    "📂 Envie seus CSVs ou Excel",
-    type=["csv", "xlsx", "xls"],
-    accept_multiple_files=True
-)
-
-def indexar_dataframe(df, nome_arquivo, collection):
-    chunk_size = 20  # reduzido para economizar memória
-    chunks, ids = [], []
-    for i in range(0, len(df), chunk_size):
-        chunk = df.iloc[i:i+chunk_size]
-        texto = f"Arquivo: {nome_arquivo}\nLinhas {i} a {i+len(chunk)}:\n{chunk.to_string()}"
-        chunk_id = hashlib.md5(texto.encode()).hexdigest()
-        chunks.append(texto)
-        ids.append(chunk_id)
-    embeddings = list(embedding_model.embed(chunks))
-    collection.add(documents=chunks, embeddings=embeddings, ids=ids)
-    return len(chunks)
-
-if uploaded_files:
+# Endpoint para upload de arquivos CSV/Excel
+@app.post("/upload")
+async def upload(file: UploadFile = File(...)):
     try:
-        collection = chroma_client.get_collection("datasets")
-    except:
-        collection = chroma_client.create_collection("datasets")
-
-    for file in uploaded_files:
-        file_hash = hashlib.md5(file.name.encode()).hexdigest()
-        if f"indexed_{file_hash}" not in st.session_state:
-            with st.spinner(f"Indexando {file.name}..."):
-                df = pd.read_csv(file) if file.name.endswith(".csv") else pd.read_excel(file)
-                n_chunks = indexar_dataframe(df, file.name, collection)
-                st.session_state[f"indexed_{file_hash}"] = True
-                st.success(f"✅ {file.name} indexado em {n_chunks} blocos ({df.shape[0]} linhas)")
+        # Lê arquivo
+        if file.filename.endswith(".csv"):
+            df = pd.read_csv(file.file)
         else:
-            st.info(f"✅ {file.name} já está indexado")
+            df = pd.read_excel(file.file)
 
-    st.divider()
+        # Cria ou pega coleção
+        try:
+            collection = chroma_client.get_collection("datasets")
+        except:
+            collection = chroma_client.create_collection("datasets")
 
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
+        # Indexa em chunks
+        chunk_size = 20
+        chunks, ids = [], []
+        for i in range(0, len(df), chunk_size):
+            chunk = df.iloc[i:i+chunk_size]
+            texto = f"Arquivo: {file.filename}\nLinhas {i} a {i+len(chunk)}:\n{chunk.to_string()}"
+            chunk_id = hashlib.md5(texto.encode()).hexdigest()
+            chunks.append(texto)
+            ids.append(chunk_id)
 
-    for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]):
-            st.write(msg["content"])
+        embeddings = list(embedding_model.embed(chunks))
+        collection.add(documents=chunks, embeddings=embeddings, ids=ids)
 
-    if prompt := st.chat_input("olá sou Gandalf, seu Mentor do Dinheiro, como posso te ajudar hoje?"):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.write(prompt)
+        return {"status": f"{file.filename} indexado em {len(chunks)} blocos"}
+    except Exception as e:
+        return {"erro": str(e)}
 
-        # Busca chunks relevantes
-        query_embedding = list(embedding_model.embed([prompt]))[0].tolist()
-        resultados = collection.query(query_embeddings=[query_embedding], n_results=5)
-        contexto = "\n\n".join(resultados["documents"][0])
+# Endpoint para perguntas
+@app.post("/pergunta")
+def responder(pergunta: Pergunta):
+    try:
+        query_embedding = list(embedding_model.embed([pergunta.texto]))[0].tolist()
 
-        # Resposta inicial com NLP leve
-        entrada = f"Pergunta: {prompt}\nContexto: {contexto}\nResposta:"
-        resposta_nlp = qa_pipeline(entrada, max_length=150)[0]["generated_text"]
+        # Busca contexto
+        resultados = chroma_client.get_collection("datasets").query(
+            query_embeddings=[query_embedding], n_results=5
+        )
+        contexto = "\n\n".join(resultados["documents"][0]) if resultados["documents"] else ""
 
-        st.write(f"🔎 Resposta baseada em NLP: {resposta_nlp}")
+        # Prompt
+        system_prompt = f"""
+        Você é Gandalf, Mentor do Dinheiro.
+        Responda de forma amigável e didática.
+        Pergunta: {pergunta.texto}
+        Contexto: {contexto}
+        """
 
-        # Escolha do modo de resposta
-        modo = st.radio(
-            "Escolha o modo de resposta:",
-            ["Resposta direta", "Resumo", "Insights"]
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "system", "content": system_prompt}],
+            max_tokens=1024
         )
 
-        if modo == "Resumo":
-            system_prompt = f"""Você é um analista de dados experiente.
-Resuma os trechos abaixo em até 5 pontos principais.
-Se não encontrar a informação, diga: Isto está além da minha compreensão.
-
-TRECHOS RELEVANTES:
-{contexto}
-"""
-        elif modo == "Insights":
-            system_prompt = f"""Você é um consultor financeiro.
-Analise os trechos abaixo e gere insights práticos para o usuário.
-Se não encontrar a informação, diga: Isto está além da minha compreensão.
-
-TRECHOS RELEVANTES:
-{contexto}
-"""
-        else:
-            system_prompt = f"""Você é Gandalf, Mentor do Dinheiro.
-Responda de forma amigável e didática, adaptando ao estilo do usuário.
-Se não encontrar a informação, diga: Isto está além da minha compreensão.
-
-Pergunta:
-{prompt}
-
-TRECHOS RELEVANTES:
-{contexto}
-"""
-
-        mensagens = [{"role": "system", "content": system_prompt}, *st.session_state.messages]
-
-        with st.chat_message("assistant"):
-            with st.spinner("Entendi pequeno mestre, vou verificar para você"):
-                response = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=mensagens,
-                    max_tokens=1024  # reduzido para economizar memória
-                )
-                reply = response.choices[0].message.content
-                st.write(reply)
-
-        st.session_state.messages.append({"role": "assistant", "content": reply})
-else:
-    st.info("⬆️ Envie seus arquivos para começar")
+        return {"resposta": response.choices[0].message.content}
+    except Exception as e:
+        return {"erro": str(e)}
