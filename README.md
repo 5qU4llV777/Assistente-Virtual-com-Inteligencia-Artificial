@@ -83,6 +83,9 @@ flowchart TD
 
 ## [TESTE MEU AGENTE](https://assistente-virtual-com-inteligencia.onrender.com/ui)
 
+## Última atualização com deploy no render
+
+[![Assista no YouTube](https://img.youtube.com/vi/qlUAIR4YCuM/0.jpg)](https://youtu.be/qlUAIR4YCuM)
 
 ## Resultado final
 
